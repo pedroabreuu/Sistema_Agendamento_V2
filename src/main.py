@@ -22,6 +22,7 @@ def menu():
     print("8 - Cancelar reserva")
     print("9 - Relatório diário")
     print("10 - Cadastrar Limpeza")
+    print("11 - Histórico de reservas por usuário")
     print("0 - Sair")
 
 
@@ -110,6 +111,33 @@ def listar_usuarios():
         print(f" - Nome: {usuario.get_nome()}")
         print(f" - Tipo: {usuario.tipo()}")
 
+
+def historico_reservas_usuario():
+    usuarios = repositorio.listar_usuarios()
+
+    if not usuarios:
+        print("Nenhum usuário cadastrado.")
+        return
+
+    listar_usuarios()
+
+    usuario_id = int(input("\nID do usuário: "))
+    usuario = repositorio.buscar_usuario_por_id(usuario_id)
+
+    if usuario is None:
+        print("Usuário não encontrado.")
+        return
+
+    reservas = repositorio.listar_reservas_por_usuario(usuario)
+
+    if not reservas:
+        print("Nenhuma reserva encontrada para este usuário.")
+        return
+
+    print(f"\nHistórico de reservas de {usuario.get_nome()}:")
+
+    for reserva in reservas:
+        print(reserva)
 
 def listar_salas_disponiveis():
 
@@ -344,6 +372,9 @@ def executar():
 
         elif opcao == "10":
             criar_reserva_limpeza()
+
+        elif opcao == "11":
+            historico_reservas_usuario()
 
         elif opcao == "0":
             print("Sistema encerrado.")
