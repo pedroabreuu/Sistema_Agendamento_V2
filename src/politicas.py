@@ -80,21 +80,50 @@ class PrioridadeProfessor(StrategyReserva):
         return reserva
 
 
+class Handler(ABC):
+    
+    def __init__(self, proximo=None):
+        self.proximo = proximo
+
+    @abstractmethod
+    def processar(self, sala: Sala, usuario: Usuario, data: date, horario: time):
+        pass
+
+
+class ValidarDataHandler(Handler):
+    
+    def processar(self, sala: Sala, usuario: Usuario, data: date, horario: time):
+        if data < date.today() or (
+            data == date.today() and horario <= datetime.now().time()
+        ):
+            raise ValueError("Data e hora inválidos")
+        
+        super().processar(sala, usuario, data, horario)
+
+
+class ValidarHorarioHandler(Handler):
+    
+    def processar(self, sala: Sala, usuario: Usuario, data: date, horario: time):
+        if horario.hour < 8 or horario.hour > 17 or horario.minute != 0:
+            raise ValueError("Horário invalido")
+        
+        super().processar(sala, usuario, data, horario)
+
+
 class ProxyReserva:
 
     def __init__(self, strategy: StrategyReserva):
         self.strategy = strategy
+        self.chain = ValidarDataHandler(
+            ValidarHorarioHandler()
+        )
 
     def alterar_strategy(self, nova_strategy: StrategyReserva):
         self.strategy = nova_strategy
 
     def criar_reserva(self, sala: Sala, usuario: Usuario, data: date, horario: time) -> Reserva | None:
 
-        if data < date.today() or (data == date.today() and horario <= datetime.now().time()):
-            raise ValueError("Data e hora inválidos")
-
-        if horario.hour < 8 or horario.hour > 17 or horario.minute != 0:
-            raise ValueError("Horário inválido")
+        self.chain.processar(sala, usuario, data, horario)
 
         return self.strategy.nova_reserva(sala, usuario, data, horario)
 
