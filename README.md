@@ -13,6 +13,7 @@ Sistema de agendamento de salas para uma instituição, permitindo cadastrar sal
 - Consulta de disponibilidade
 - Geração de relatório diário de reservas
 - Listagem de salas e usuários
+- Histórico de reservas por usuário
 - Reserva de limpeza usando usuário de manutenção
 
 
@@ -59,6 +60,7 @@ Sistema de agendamento de salas para uma instituição, permitindo cadastrar sal
 - Singleton
 - Proxy
 - Decorator
+- Chain of Responsibility
 
 
 ## Padrões de Projeto
@@ -67,8 +69,9 @@ Sistema de agendamento de salas para uma instituição, permitindo cadastrar sal
 - `Strategy`: usado em `PrimeiraReserva` e `PrioridadeProfessor` para selecionar a política de criação de reservas.
 - `Observer`: usado em `ObserverUsuario` e `NotificadorReservas` para notificar alterações e cancelamentos de reservas.
 - `Singleton`: usado em `RepositorioReservas` para manter um repositório único em memória, com controle de concorrência.
-- `Proxy`: usado em `ProxyReserva` para centralizar validações antes da criação de reservas.
+- `Proxy`: usado em `ProxyReserva` para intermediar a criação de reservas e delegar validações para uma cadeia.
 - `Decorator`: usado em `DecoratorLimpeza` para adicionar o comportamento de reserva de limpeza.
+- `Chain of Responsibility`: usado em handlers de validação de reserva para separar validações de sala/usuário, data/hora futura e horário de funcionamento.
 
 
 
@@ -80,7 +83,7 @@ Execute o programa:
 python3 src/main.py
 ```
 
-O menu interativo permite cadastrar salas e usuários, criar/modificar/cancelar reservas, consultar disponibilidade, gerar relatórios e criar reservas de limpeza.
+O menu interativo permite cadastrar salas e usuários, criar/modificar/cancelar reservas, consultar disponibilidade, gerar relatórios, criar reservas de limpeza e consultar o histórico de reservas por usuário.
 
 
 ## Estrutura do projeto
@@ -106,6 +109,8 @@ O menu interativo permite cadastrar salas e usuários, criar/modificar/cancelar 
 
 - Criar reserva de limpeza: menu → `10` → informe `ID` da sala, data e horário
 
+- Consultar histórico de reservas por usuário: menu → `11` → informe `ID` do usuário
+
 
 ## Exemplo de Menu
 
@@ -120,13 +125,14 @@ O menu interativo permite cadastrar salas e usuários, criar/modificar/cancelar 
 8 - Cancelar reserva
 9 - Relatório diário
 10 - Criar reserva de limpeza
+11 - Histórico de reservas por usuário
 0 - Sair
 ```
 
 
 ## Notas de Desenvolvimento
 
-- As validações e regras de prioridade entre usuários estão implementadas em `politicas.py`.
+- As validações de criação de reserva são delegadas pelo `ProxyReserva` para uma cadeia de handlers em `politicas.py`.
 - O sistema de notificações de mudanças utiliza o padrão Observer.
 - A criação de usuários e salas utiliza Factory.
 - As estratégias e regras de prioridade utilizam Strategy e Proxy.
@@ -137,4 +143,5 @@ O menu interativo permite cadastrar salas e usuários, criar/modificar/cancelar 
 ## Autores
 
 - Ana Beatriz Ribeiro Garcia
-- Pedro Marx Amaral Abreu 
+- Pedro Marx Amaral Abreu
+- Matheus de Souza Kawasaki Campos

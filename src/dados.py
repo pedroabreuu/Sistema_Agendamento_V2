@@ -71,6 +71,16 @@ class RepositorioReservas:
         with self._data_lock:
             return list(self.reservas)
 
+    def listar_reservas_por_usuario(self, usuario):
+        reservas_do_usuario = []
+
+        with self._data_lock:
+            for reserva in self.reservas:
+                if reserva.get_usuario() == usuario:
+                    reservas_do_usuario.append(reserva)
+
+        return reservas_do_usuario
+
     def buscar_sala_por_id(self, sala_id):
         with self._data_lock:
             for sala in self.salas:
