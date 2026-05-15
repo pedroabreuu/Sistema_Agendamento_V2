@@ -4,7 +4,7 @@ Este documento complementa o `README.md` e o diagrama de classes em `docs/Diagra
 
 ## Visao geral
 
-O projeto implementa uma aplicacao de linha de comando para reservar salas de estudo em um campus universitario. O sistema permite cadastrar salas e usuarios, consultar disponibilidade por periodo, criar reservas, modificar reservas, cancelar reservas, emitir notificacoes e gerar relatorio diario.
+O projeto implementa uma aplicacao de linha de comando para reservar salas de estudo em um campus universitario. O sistema permite cadastrar salas e usuarios, consultar disponibilidade por periodo, criar reservas, modificar reservas, cancelar reservas, consultar historico de reservas por usuario, emitir notificacoes e gerar relatorio diario.
 
 Os dados ficam em memoria durante a execucao. Ao encerrar o programa, as salas, usuarios e reservas cadastradas deixam de existir, pois nao ha banco de dados ou arquivo de persistencia.
 
@@ -34,7 +34,7 @@ docs/
 4. Ao criar uma reserva, `main.py` escolhe a estrategia adequada:
    - `PrimeiraReserva` para alunos e usuarios comuns.
    - `PrioridadeProfessor` para professores.
-5. `ProxyReserva` valida data, horario e formato do horario.
+5. `ProxyReserva` delega as validacoes para uma cadeia de handlers.
 6. A estrategia consulta `RepositorioReservas` para detectar colisao.
 7. Se a reserva for valida, uma instancia de `Reserva` e criada ou uma reserva existente e alterada.
 8. Alteracoes e cancelamentos disparam notificacoes via `NotificadorReservas`.
@@ -73,6 +73,7 @@ Instancia de `RepositorioReservas`. Como essa classe usa Singleton, qualquer out
 - `modificar_reserva()`: lista reservas, seleciona uma pelo id e permite alterar horario, data ou sala. A propria classe `Reserva` valida conflitos e regras de prioridade.
 - `cancelar_reserva()`: seleciona uma reserva pelo id e chama `cancelar_reserva()`.
 - `gerar_relatorio_diario()`: recebe uma data e imprime o resultado de `RelatorioDiario.gerar()`.
+- `historico_reservas_usuario()`: lista usuarios, recebe o id do usuario e imprime todas as reservas atualmente associadas a ele.
 - `executar()`: loop principal do sistema. Le a opcao do menu e chama a funcao correspondente ate o usuario escolher sair.
 
 ## `src/salas.py`
@@ -265,15 +266,33 @@ Responsabilidades:
 
 - Guardar a estrategia atual.
 - Permitir troca em tempo de execucao com `alterar_strategy()`.
-- Validar se data/hora nao estao no passado.
-- Validar se o horario esta entre `08:00` e `17:00` e se os minutos sao `00`.
+- Delegar a validacao da reserva para uma cadeia de handlers.
 - Delegar a criacao para `strategy.nova_reserva()`.
 
 Metodos:
 
 - `__init__(strategy)`: recebe a estrategia inicial.
 - `alterar_strategy(nova_strategy)`: troca a estrategia.
-- `criar_reserva(sala, usuario, data, horario)`: valida e cria a reserva.
+- `criar_reserva(sala, usuario, data, horario)`: aciona a cadeia de validacao e cria a reserva.
+
+### Chain of Responsibility para validacao de reservas
+
+Usado em:
+
+- `Handler`
+- `ValidarSalaUsuarioHandler`
+- `ValidarDataHandler`
+- `ValidarHorarioHandler`
+- `criar_cadeia_validacao_reserva()`
+
+Objetivo: separar as validacoes de criacao de reserva em etapas independentes. Cada handler valida uma regra e encaminha a requisicao para o proximo handler da cadeia.
+
+Responsabilidades:
+
+- `ValidarSalaUsuarioHandler`: impede criacao com sala ou usuario inexistente.
+- `ValidarDataHandler`: impede reservas em data/hora passada.
+- `ValidarHorarioHandler`: impede horarios fora de `08:00` a `17:00` e horarios com minutos diferentes de `00`.
+- `criar_cadeia_validacao_reserva()`: monta a ordem padrao da cadeia usada pelo `ProxyReserva`.
 
 ### Classe `GetReserva`
 
@@ -287,7 +306,7 @@ Decorator usado para criar reserva de limpeza como extensao opcional.
 
 - `user_limpeza`: usuario fixo de `"Manutenção"` chamado `"Limpeza"`.
 - `__init__(strategy)`: recebe uma estrategia base.
-- `nova_reserva(sala, usuario, data, horario)`: valida data e horario, impede conflito e delega para a estrategia base usando `user_limpeza`, ignorando o usuario recebido como argumento.
+- `nova_reserva(sala, usuario, data, horario)`: reutiliza a cadeia de validacao de reservas, impede conflito e delega para a estrategia base usando `user_limpeza`, ignorando o usuario recebido como argumento.
 
 ## `src/dados.py`
 
@@ -334,6 +353,7 @@ Metodos de listagem:
 - `listar_salas()`: retorna copia da lista de salas.
 - `listar_usuarios()`: retorna copia da lista de usuarios.
 - `listar_reservas()`: retorna copia da lista de reservas.
+- `listar_reservas_por_usuario(usuario)`: retorna reservas atualmente associadas ao usuario informado.
 - `listar_reservas_por_data(data)`: retorna reservas da data informada.
 - `listar_reservas_por_sala(sala)`: retorna reservas da sala informada.
 
@@ -452,7 +472,7 @@ Usado em:
 
 - `ProxyReserva`
 
-Objetivo: centralizar validacoes comuns antes de chamar a estrategia de criacao de reserva.
+Objetivo: intermediar a criacao de reserva e delegar as validacoes comuns para a cadeia de handlers antes de chamar a estrategia concreta.
 
 ### Decorator
 
@@ -461,6 +481,17 @@ Usado em:
 - `DecoratorLimpeza`
 
 Objetivo: adicionar o comportamento de reserva de limpeza sem alterar as strategies existentes.
+
+### Chain of Responsibility
+
+Usado em:
+
+- `Handler`
+- `ValidarSalaUsuarioHandler`
+- `ValidarDataHandler`
+- `ValidarHorarioHandler`
+
+Objetivo: processar as validacoes de criacao de reserva em uma cadeia, mantendo cada regra isolada em uma classe propria.
 
 ## Fluxos importantes
 
@@ -517,6 +548,16 @@ main.gerar_relatorio_diario()
   -> filtra status Confirmada
   -> agrupa por sala
   -> retorna texto do relatorio
+```
+
+### Historico de reservas por usuario
+
+```text
+main.historico_reservas_usuario()
+  -> RepositorioReservas.listar_usuarios()
+  -> RepositorioReservas.buscar_usuario_por_id()
+  -> RepositorioReservas.listar_reservas_por_usuario()
+  -> imprime cada reserva encontrada
 ```
 
 ## Como adicionar novos recursos
